@@ -146,7 +146,7 @@ class TinyFPGAASeries(ProgrammerHardwareAdapter):
                 program_failure = True
 
     def checkPortStatus(self, update_button_state):
-        with serial.Serial(self.port[0], 12000000, timeout=2.0, writeTimeout=0.1) as ser:
+        with serial.Serial(self.port[0], 12000000, timeout=.5, writeTimeout=0.1) as ser:
             async_serial = tinyfpgaa.AsyncSerial(ser)
             pins = tinyfpgaa.JtagTinyFpgaProgrammer(async_serial)
             jtag = tinyfpgaa.Jtag(pins)
@@ -288,7 +288,7 @@ def check_port_status_task():
             update_button_state(new_serial_port_ready = False)
 
 
-    r.after(100, check_port_status_task)
+    r.after(500, check_port_status_task)
     
 
 check_port_status_task()
