@@ -30,7 +30,7 @@ import tinyfpgaa
 class ProgrammerHardwareAdapter(object):
     def __init__(self, port):
         self.port = port
-        self.bus, self.portnum = [int(x) for x in self.port[2].split('=')[-1].split('-')]
+        #self.bus, self.portnum = [int(x) for x in self.port[2].split('=')[-1].split('-')]
 
     @staticmethod
     def canProgram(port):
@@ -46,12 +46,14 @@ class ProgrammerHardwareAdapter(object):
         pass
 
     def reset(self):
-        try:
-            import usb
-            device = usb.core.find(custom_match = lambda d: d.bus == self.bus and d.port_number == self.portnum)
-            device.reset()
-        except:
-            traceback.print_exc()
+        # TODO: for now...let's not bother with resetting the port
+        pass
+        #try:
+        #    import usb
+        #    device = usb.core.find(custom_match = lambda d: d.bus == self.bus and d.port_number == self.portnum)
+        #    device.reset()
+        #except:
+        #    traceback.print_exc()
 
 
 class TinyFPGABSeries(ProgrammerHardwareAdapter):
@@ -276,7 +278,7 @@ def update_serial_port_list_task():
     if not program_in_progress:
         new_tinyfpga_adapters = dict((adapter.displayName(), adapter) for adapter in [getProgrammerHardwareAdapter(port) for port in comports()] if adapter is not None)
         new_tinyfpga_ports = [key for key, value in new_tinyfpga_adapters.iteritems()]
-
+        
         if new_tinyfpga_ports != tinyfpga_ports:
             if com_port_sv.get() == "" and len(new_tinyfpga_ports) > 0:
                 com_port_sv.set(new_tinyfpga_ports[0])
