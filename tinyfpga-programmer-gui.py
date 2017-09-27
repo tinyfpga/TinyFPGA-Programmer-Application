@@ -329,8 +329,7 @@ def select_bitstream_file_cmd():
     filename = tkFileDialog.askopenfilename(
         title = "Select file", 
         filetypes = [
-            ('FPGA Hex Files', '.hex'), 
-            ('FPGA JEDEC Files', '.jed'), 
+            ('FPGA Bitstream Files', ('.hex', '.jed')), 
             ('all files', '.*')
         ]
     )
