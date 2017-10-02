@@ -308,7 +308,7 @@ def check_port_status_task():
             try:
                 adapter.reset()
             except:
-                pass
+                traceback.print_exc()
         finally:
             communication_lock.release()
 
