@@ -71,6 +71,9 @@ class TinyFPGABSeries(ProgrammerHardwareAdapter):
         if "0000:0000" in self.port[2]:
             return "%s (Maybe TinyFPGA Bx Prototype)" % self.port[0]
 
+    def get_file_extensions(self):
+        return ('.hex', '.bin')
+
     def program(self, filename, progress):
         global max_progress
 
@@ -90,29 +93,30 @@ class TinyFPGABSeries(ProgrammerHardwareAdapter):
 
 
     def checkPortStatus(self, update_button_state):
-        global serial_port_ready
         try:
             with serial.Serial(self.port[0], 10000000, timeout=0.1, writeTimeout=0.1) as ser:
                 fpga = TinyFPGAB(ser)
 
+                fpga.wake()
+                fpga.read(0, 16)
                 fpga.wake()
                 devid = fpga.read_id()
 
                 expected_devid = [0x1F, 0x84, 0x01]
                 if devid == expected_devid:
                     com_port_status_sv.set("Connected to TinyFPGA B2. Ready to program.")
-                    update_button_state(new_serial_port_ready = True, new_has_bootloader = True)
+                    return True
                 else:
                     com_port_status_sv.set("Unable to communicate with TinyFPGA. Reconnect and reset TinyFPGA before programming.")
-                    update_button_state(new_serial_port_ready = False, new_has_bootloader = True)
+                    return False
 
         except serial.SerialTimeoutException:
             com_port_status_sv.set("Hmm...try pressing the reset button on TinyFPGA again.")
-            update_button_state(new_serial_port_ready = False, new_has_bootloader = True)
+            return False
 
         except:
             com_port_status_sv.set("Bootloader not active. Press reset button on TinyFPGA before programming.")
-            update_button_state(new_serial_port_ready = False, new_has_bootloader = True)
+            return False
 
     def exitBootloader(self):
         with serial.Serial(self.port[0], 10000000, timeout=0.1, writeTimeout=0.1) as ser:
@@ -134,6 +138,9 @@ class TinyFPGAASeries(ProgrammerHardwareAdapter):
 
     def displayName(self):
         return "%s (TinyFPGA Ax)" % self.port[0]
+
+    def get_file_extensions(self):
+        return ('.jed')
 
     def program(self, filename, progress):
         global max_progress
@@ -157,30 +164,35 @@ class TinyFPGAASeries(ProgrammerHardwareAdapter):
                 self.reset()
                 traceback.print_exc()
 
-
+    port_success = False
     def checkPortStatus(self, update_button_state):
+        global port_success
         with serial.Serial(self.port[0], 12000000, timeout=.5, writeTimeout=0.1) as ser:
             async_serial = tinyfpgaa.SyncSerial(ser)
             pins = tinyfpgaa.JtagTinyFpgaProgrammer(async_serial)
             jtag = tinyfpgaa.Jtag(pins)
             programmer = tinyfpgaa.JtagCustomProgrammer(jtag)
+            port_success = False
 
             def status_callback(status):
+                global port_success
+                
                 if status == [0x43, 0x80, 0x2B, 0x01]:
                     com_port_status_sv.set("Connected to TinyFPGA A1. Ready to program.")
-                    update_button_state(new_serial_port_ready = True, new_has_bootloader = False)
+                    port_success = True
 
                 elif status == [0x43, 0xA0, 0x2B, 0x01]:
                     com_port_status_sv.set("Connected to TinyFPGA A2. Ready to program.")
-                    update_button_state(new_serial_port_ready = True, new_has_bootloader = False)
+                    port_success = True
 
                 else:
                     com_port_status_sv.set("Cannot identify FPGA.  Please ensure proper FPGA power and JTAG connection.")
-                    update_button_state(new_serial_port_ready = False, new_has_bootloader = False)
+                    port_success = False
 
             ### read idcode
             programmer.write_ir(8, 0xE0)
             programmer.read_dr(32, status_callback, blocking = True)
+            return port_success
 
     def exitBootloader(self):
         pass
@@ -208,33 +220,26 @@ r.resizable(width=False, height=False)
 program_in_progress = False
 program_failure = False
 
-boot_fpga_b = Button(r, text="Exit Bootloader")
 program_fpga_b = Button(r, text="Program FPGA")
 program_progress_pb = Progressbar(r, orient="horizontal", length=400, mode="determinate")
+
+boot_fpga_b = Button(r, text="Exit Bootloader")
 
 program_status_sv = StringVar(r)
 
 serial_port_ready = False
 bitstream_file_ready = False
-has_bootloader = False
 file_mtime = 0
 
-def update_button_state(new_serial_port_ready = None, new_has_bootloader = None):
+def update_button_state(new_serial_port_ready = None):
     global serial_port_ready
     global bitstream_file_ready
-    global has_bootloader
 
     if new_serial_port_ready is not None:
         serial_port_ready = new_serial_port_ready
 
-    if new_has_bootloader is not None:
-        has_bootloader = new_has_bootloader
-
     if serial_port_ready and not program_in_progress:
-        if has_bootloader:
-            boot_fpga_b.config(state=NORMAL)
-        else:
-            boot_fpga_b.config(state=DISABLED)
+        boot_fpga_b.config(state=NORMAL)
 
         if bitstream_file_ready:
             program_fpga_b.config(state=NORMAL)
@@ -282,6 +287,10 @@ def update_serial_port_list_task():
         if new_tinyfpga_ports != tinyfpga_ports:
             if com_port_sv.get() == "" and len(new_tinyfpga_ports) > 0:
                 com_port_sv.set(new_tinyfpga_ports[0])
+                update_button_state(new_serial_port_ready = True)
+
+            update_button_state(new_serial_port_ready = com_port_sv.get() in new_tinyfpga_ports)
+
             menu = select_port_om["menu"]
             menu.delete(0, "end")
             for string in new_tinyfpga_ports:
@@ -291,32 +300,25 @@ def update_serial_port_list_task():
             tinyfpga_ports = new_tinyfpga_ports
             tinyfpga_adapters = new_tinyfpga_adapters
 
-    r.after(1000, update_serial_port_list_task)
+    r.after(500, update_serial_port_list_task)
 
 update_serial_port_list_task()
 
 def check_port_status_task():
     global adapter
-    if communication_lock.acquire(False):
+    try:
+        adapter = tinyfpga_adapters[com_port_sv.get()]
+        return adapter.checkPortStatus(update_button_state)
+
+    except:
+        com_port_status_sv.set("Unable to communicate with TinyFPGA.  Reset your TinyFPGA and check your connections.")
+        traceback.print_exc()
         try:
-            adapter = tinyfpga_adapters[com_port_sv.get()]
-            adapter.checkPortStatus(update_button_state)
+            adapter.reset()
         except:
-            com_port_status_sv.set("Unable to communicate with TinyFPGA.  Reset your TinyFPGA and check your connections.")
-            update_button_state(new_serial_port_ready = False)
             traceback.print_exc()
-            try:
-                adapter.reset()
-            except:
-                traceback.print_exc()
-        finally:
-            communication_lock.release()
+        return False
 
-    r.after(100, check_port_status_task)
-    
-
-check_port_status_task()
-#update_button_state(new_serial_port_ready = True)
 
 
 ########################################
@@ -326,10 +328,18 @@ check_port_status_task()
 filename_sv = StringVar(r)
 
 def select_bitstream_file_cmd():
+    file_extensions = ('FPGA Bitstream Files', ('.hex', '.bin', '.jed'))
+
+    try:
+        adapter = tinyfpga_adapters[com_port_sv.get()]
+        file_extensions = adapter.get_file_extensions()
+    except:
+        pass
+
     filename = tkFileDialog.askopenfilename(
         title = "Select file", 
         filetypes = [
-            ('FPGA Bitstream Files', ('.hex', '.jed')), 
+            ('FPGA Bitstream Files', file_extensions), 
             ('all files', '.*')
         ]
     )
@@ -447,26 +457,16 @@ def update_progress_task():
 update_progress_task()
 
 def program_fpga_cmd():
-    global program_in_progress
-    program_in_progress = True
-    update_button_state()
-    t = threading.Thread(target=program_fpga_thread)
-    t.start()
+    if check_port_status_task():
+        global program_in_progress
+        program_in_progress = True
+        update_button_state()
+        t = threading.Thread(target=program_fpga_thread)
+        t.start()
 
 program_fpga_b.configure(command=program_fpga_cmd)
 program_fpga_b.grid(column=0, row=2, sticky=W+E, padx=10, pady=8)
 
-def program_failure_task():
-    global program_failure
-    global adapter
-    if program_failure:
-        adapter.reset()
-        program_status_sv.set("Programming failed! Reset TinyFPGA and try again.")
-        program_failure = False
-
-    r.after(100, program_failure_task)
-
-program_failure_task()
 
 
 ########################################
