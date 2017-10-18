@@ -77,7 +77,7 @@ class TinyFPGABSeries(ProgrammerHardwareAdapter):
     def program(self, filename, progress):
         global max_progress
 
-        with serial.Serial(self.port[0], 10000000, timeout=0.1, writeTimeout=0.1) as ser:
+        with serial.Serial(self.port[0], 115200, timeout=2, writeTimeout=2) as ser:
             fpga = TinyFPGAB(ser, progress)
 
             (addr, bitstream) = fpga.slurp(filename)
@@ -94,19 +94,13 @@ class TinyFPGABSeries(ProgrammerHardwareAdapter):
 
     def checkPortStatus(self, update_button_state):
         try:
-            with serial.Serial(self.port[0], 10000000, timeout=0.1, writeTimeout=0.1) as ser:
+            with serial.Serial(self.port[0], 115200, timeout=0.2, writeTimeout=0.2) as ser:
                 fpga = TinyFPGAB(ser)
-
-                fpga.wake()
-                fpga.read(0, 16)
-                fpga.wake()
-                devid = fpga.read_id()
-
-                expected_devid = [0x1F, 0x84, 0x01]
-                if devid == expected_devid:
+            
+                if fpga.is_bootloader_active():
                     com_port_status_sv.set("Connected to TinyFPGA B2. Ready to program.")
                     return True
-                else:
+                else:            
                     com_port_status_sv.set("Unable to communicate with TinyFPGA. Reconnect and reset TinyFPGA before programming.")
                     return False
 
@@ -119,7 +113,7 @@ class TinyFPGABSeries(ProgrammerHardwareAdapter):
             return False
 
     def exitBootloader(self):
-        with serial.Serial(self.port[0], 10000000, timeout=0.1, writeTimeout=0.1) as ser:
+        with serial.Serial(self.port[0], 10000000, timeout=0.2, writeTimeout=0.2) as ser:
             try:
                 TinyFPGAB(ser).boot()
 
@@ -300,7 +294,7 @@ def update_serial_port_list_task():
             tinyfpga_ports = new_tinyfpga_ports
             tinyfpga_adapters = new_tinyfpga_adapters
 
-    r.after(500, update_serial_port_list_task)
+    r.after(100, update_serial_port_list_task)
 
 update_serial_port_list_task()
 
