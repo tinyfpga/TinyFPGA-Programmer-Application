@@ -21,7 +21,7 @@ import os.path
 import traceback
 from serial.tools.list_ports import comports
 
-from tinyfpgab import h, TinyFPGAB
+from tinyfpgab import TinyFPGAB
 import tinyfpgaa
 
 ########################################
