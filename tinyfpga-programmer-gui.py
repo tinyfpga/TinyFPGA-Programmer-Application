@@ -6,7 +6,6 @@ import os
 script_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(script_path, 'pkgs'))
 sys.path.insert(0, os.path.join(script_path, 'a-series-programmer', 'python'))
-sys.path.insert(0, os.path.join(script_path, 'b-series', 'programmer'))
 
 import serial
 import array
