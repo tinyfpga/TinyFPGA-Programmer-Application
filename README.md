@@ -1,2 +1,11 @@
 # TinyFPGA-Programmer-Application
 Desktop application for programming TinyFPGA boards
+
+## How to checkout the git repo with the sub-modules
+This git repo uses sub-modules to link to other git repos on github.  In order to clone the repo as well as the sub-modules you need to add an extra option to your clone command-line:
+
+```
+> git clone --recursive https://github.com/tinyfpga/TinyFPGA-Programmer-Application.git
+```
+
+The `--recursive` argument tells git to clone all the sub-modules as well.  For more information on how git sub-modules work, check out this [Git Submodules basic explanation](https://gist.github.com/gitaarik/8735255).
