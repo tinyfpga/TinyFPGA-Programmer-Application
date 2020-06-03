@@ -1,6 +1,1 @@
-[submodule "b-series"]
-	path = b-series
-	url = https://github.com/QuickLogic-Corp/TinyFPGA-B-Series.git
-[submodule "a-series-programmer"]
-	path = a-series-programmer
-	url = https://github.com/QuickLogic-Corp/TinyFPGA-A-Programmer.git
+
