@@ -12,9 +12,6 @@ import serial
 import array
 import time
 #from intelhex import IntelHex
-from tkinter import *
-from tkinter.ttk import *
-import tkinter.filedialog as tkFileDialog
 import binascii
 from qlcrc import *
 
@@ -455,6 +452,10 @@ else:
     ##
     ################################################################################
     ################################################################################
+
+    from tkinter import *
+    from tkinter.ttk import *
+    import tkinter.filedialog as tkFileDialog
 
     communication_lock = threading.Lock()
 
