@@ -1,5 +1,5 @@
 # TinyFPGA-Programmer-Application
-Desktop application for programming TinyFPGA boards updated to pythoin3 and for QuickLogic's QuickFeather including CLI support
+Desktop application for programming TinyFPGA boards updated to python3 and for QuickLogic's QuickFeather including CLI support
 
 ## How to checkout the git repo with the sub-modules
 This git repo uses sub-modules to link to other git repos on github.  In order to clone the repo as well as the sub-modules you need to add an extra option to your clone command-line:
