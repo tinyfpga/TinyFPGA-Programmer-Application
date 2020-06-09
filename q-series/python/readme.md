@@ -1,5 +1,9 @@
-Programming Quickfeather boards with TinyFPGA-Programmer-Application
+# Programming Quickfeather boards
 
+## Installation
+
+
+## Programming
 The tinyfpga-programmer-gui.py can run in either GUI mode or CLI mode.  GUI mode only works well on systems
 that report USB VID and PID, because the GUI uses that information to determine which serial ports are connected
 to quickfeather boards. CLI mode allows you to specify which port to use, and thus works even when the system does not
@@ -7,8 +11,38 @@ report USB VID and PID.  This document focuses on CLI mode.
 
 Help is available by running with the --help parameter:
 
-* $ python3 tinyfpga-programmer-gui --help
+```sh
+python3 tinyfpga-programmer-gui --help
+```
+This will result in:
+```
+usage: tinyfpga-programmer-gui.py [-h] [--m4app app.bin]
+                                  [--bootloader boot.bin]
+                                  [--bootfpga fpga.bin] [--reset]
+                                  [--port /dev/ttySx] [--crc] [--checkrev]
+                                  [--update] [--mfgpkg qf_mfgpkg/]
 
+optional arguments:
+  -h, --help            show this help message and exit
+  --m4app app.bin       m4 application program
+  --bootloader boot.bin, --bl boot.bin
+                        m4 bootloader program WARNING: do you really need to
+                        do this? It is not common, and getting it wrong can
+                        make you device non-functional
+  --bootfpga fpga.bin   FPGA image to be used during programming WARNING: do
+                        you really need to do this? It is not common, and
+                        getting it wrong can make you device non-functional
+  --reset               reset attached device
+  --port /dev/ttySx     use this port
+  --crc                 print CRCs
+  --checkrev            check if CRC matches (flash is up-to-date)
+  --update              program flash only if CRC mismatch (not up-to-date)
+  --mfgpkg qf_mfgpkg/   directory containing all necessary binaries
+  ```
+The programmer allows you to specify the port using the *--port port-name* option.  The form of *port-name* varies depending on the system: COM## on PC/Windows, /dev/ttyS## on PC/wsl2/Ubuntu18, /dev/ttyACM# on PC/Ubuntu18.
+
+
+## Flash memory map
 The TinyFPGA programmer has a flash memory map for 5 bin files, and corresponding CRC for each of them.
 The 5 bin files are:
   * bootloader
