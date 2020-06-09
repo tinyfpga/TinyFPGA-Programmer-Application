@@ -75,7 +75,7 @@ class TinyFPGAQSeries(ProgrammerHardwareAdapter):
     def get_file_extensions(self):
         return ('.hex', '.bin')
 
-    def program(self, filename, progress):
+    def program(self, filename, progress, description, checkrev=False, update=False):
         global max_progress
 
         with serial.Serial(self.port[0], 115200, timeout=20, writeTimeout=20) as ser:
@@ -110,7 +110,31 @@ class TinyFPGAQSeries(ProgrammerHardwareAdapter):
             if(bitstream_size > max_size):
                 print("Error: The file size", bitstream_size, "exceeds max size", max_size, "for the selected image")
                 return
-            
+                
+            try:
+                actual_crc = fpga.read(meta_addr, 8, False)
+            except:
+                program_failure = True
+                traceback.print_exc()
+                return()
+                
+            # If just wants to check the revision, print match/mismatch and return
+            if checkrev:
+                if meta_bitstream == actual_crc:
+                    print("is  up-to-date:", filename);
+                    return()
+                else:
+                    print("not up-to-date:", filename);
+                    return()
+                    
+            # If specified update, then return if CRC matches, otherwise program
+            if update and (meta_bitstream == actual_crc):
+                print("Skipping programming because CRC matches for ", filename);
+                return()
+                
+            # Need to program
+            print(description, filename)
+                
             #print("Address = ", hex(addr), hex(max_size), hex(meta_addr))
 
             max_progress = len(bitstream) * 3 
@@ -353,10 +377,25 @@ parser.add_argument(
         action="store_true",
         help='print CRCs'
     )
-    
+parser.add_argument(
+        "--checkrev",
+        action="store_true",
+        help='check if CRC matches (flash is up-to-date)'
+    )
+parser.add_argument(
+        "--update",
+        action="store_true",
+        help='program flash only if CRC mismatch (not up-to-date)'
+    )
+parser.add_argument(
+        "--mfgpkg",
+        type=str,
+        metavar='qf_mfgpkg/',
+        help='directory containing all necessary binaries'
+    )
 args = parser.parse_args()
 
-if args.m4app or args.bootloader or args.bootfpga or args.reset or args.crc:
+if args.m4app or args.bootloader or args.bootfpga or args.reset or args.crc or args.mfgpkg or args.checkrev or --args.update:
     ################################################################################
     ################################################################################
     ##
@@ -424,10 +463,29 @@ if args.m4app or args.bootloader or args.bootfpga or args.reset or args.crc:
         [0x060000, 0x020000, 0x012000], #"App FFE    - 0x060000 to 0x07FFFF",
         [0x080000, 0x06E000, 0x013000], #"M4 App     - 0x080000 to 0x0FFFFF"
     ]
+    
+    ########################################
+    ## If specified mfgpkg, populate names
+    ########################################
+    if args.mfgpkg:
+        bootloadername = args.mfgpkg + "/qf_bootloader.bin"
+        args.bootloader = True
+        bootfpganame = args.mfgpkg + "/qf_bootfpga.bin"
+        args.bootfpga = True
+        m4appname = args.mfgpkg + "/qf_helloworldsw.bin"
+        args.m4app = True
+    else:
+        m4appname = args.m4app.name
+        
+    ########################################
+    ## Set up adapter
+    ########################################
+    print("Using port ", tinyfpga_ports[0])
+    adapter = tinyfpga_adapters[tinyfpga_ports[0]]
+    
     ########################################
     ## See if wants to print CRCs
     ########################################
-    
     if args.crc:
         adapter = tinyfpga_adapters[tinyfpga_ports[0]]
         adapter.printCRCs()
@@ -435,31 +493,24 @@ if args.m4app or args.bootloader or args.bootfpga or args.reset or args.crc:
     ########################################
     ## See if wants to program m4app
     ########################################
-    
     if args.m4app:
         image_index = 4 # point to M4 App image
-        print("Programming m4 application with ", args.m4app.name)
-        print("Using port ", tinyfpga_ports[0])
-        adapter = tinyfpga_adapters[tinyfpga_ports[0]]
-        adapter.program(args.m4app.name, progress)
+        #print("Programming m4 application with ", m4appname)
+        adapter.program(m4appname, progress, "Programming m4 application with ", args.checkrev, args.update)
     ########################################
     ## See if wants to program bootloader
     ########################################
     if args.bootloader:
         image_index = 0 # point to bootloader image
-        print("Programming bootloader with ", args.bootloader.name)
-        print("Using port ", tinyfpga_ports[0])
-        adapter = tinyfpga_adapters[tinyfpga_ports[0]]
-        adapter.program(args.bootloader.name, progress)
+        #print("Programming bootloader with ", bootloadername)
+        adapter.program(bootloadername, progress, "Programming bootloader with ", args.checkrev, args.update)
     ########################################
     ## See if wants to program FPGA image used during programming
     ########################################
     if args.bootfpga:
         image_index = 1 # point to FPGA image used during programming
-        print("Programming FPGA image used during programming ", args.bootfpga.name)
-        print("Using port ", tinyfpga_ports[0])
-        adapter = tinyfpga_adapters[tinyfpga_ports[0]]
-        adapter.program(args.bootfpga.name, progress)
+        #print("Programming FPGA image used during programming ", bootfpganame)
+        adapter.program(bootfpganame, progress, "Programming FPGA image used during programming ", args.checkrev, args.update)
         
     ########################################
     ##            MUST BE LAST IN SEQUENCE
@@ -467,7 +518,6 @@ if args.m4app or args.bootloader or args.bootfpga or args.reset or args.crc:
     ########################################
     if args.reset:
         print("Reset the device")
-        adapter = tinyfpga_adapters[tinyfpga_ports[0]]
         adapter.exitBootloader()
 
 else:

@@ -1,3 +1,14 @@
+Programming Quickfeather boards with TinyFPGA-Programmer-Application
+
+The tinyfpga-programmer-gui.py can run in either GUI mode or CLI mode.  GUI mode only works well on systems
+that report USB VID and PID, because the GUI uses that information to determine which serial ports are connected
+to quickfeather boards. CLI mode allows you to specify which port to use, and thus works even when the system does not
+report USB VID and PID.  This document focuses on CLI mode.
+
+Help is available by running with the --help parameter:
+
+* $ python3 tinyfpga-programmer-gui --help
+
 The TinyFPGA programmer has a flash memory map for 5 bin files, and corresponding CRC for each of them.
 The 5 bin files are:
   * bootloader

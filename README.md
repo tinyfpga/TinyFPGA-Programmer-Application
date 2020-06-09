@@ -15,3 +15,4 @@ Once you've cloned the repo you can launch the programmer with python:
 cd TinyFPGA-Programmer-Application
 python3 tinyfpga-programmer-gui.py
 ```
+For more information on QuickFEather programming, please see the readme.md in q-series/python
