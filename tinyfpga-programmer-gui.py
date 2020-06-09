@@ -63,14 +63,14 @@ class TinyFPGAQSeries(ProgrammerHardwareAdapter):
 
     @staticmethod
     def canProgram(port):
-        return "1D50:6130" in port[2] or "0000:0000" in port[2]
+        return "1D50:6130" in port[2] or "1D50:6140" in port[2] or "0000:0000" in port[2]
 
     def displayName(self):
         if "1D50:6130" in self.port[2]:
             return "%s (QuickFeather)" % self.port[0]
 
-        if "0000:0000" in self.port[2]:
-            return "%s (Maybe QuickFeather Prototype)" % self.port[0]
+        if "1D50:6140" in self.port[2]:
+            return "%s (QuickFeather)" % self.port[0]
 
     def get_file_extensions(self):
         return ('.hex', '.bin')
@@ -78,7 +78,7 @@ class TinyFPGAQSeries(ProgrammerHardwareAdapter):
     def program(self, filename, progress):
         global max_progress
 
-        with serial.Serial(self.port[0], 115200, timeout=10, writeTimeout=10) as ser:
+        with serial.Serial(self.port[0], 115200, timeout=20, writeTimeout=20) as ser:
             fpga = TinyFPGAQ(ser, progress)
 
             (addr, bitstream) = fpga.slurp(filename)
@@ -123,8 +123,8 @@ class TinyFPGAQSeries(ProgrammerHardwareAdapter):
                 traceback.print_exc()
 
             #bootloader does not have metatdata
-            if(meta_addr > 0x20000):
-                return
+            #if(meta_addr > 0x20000):
+            #    return
 
             try:
                 print ("Writing metadata")
@@ -138,13 +138,9 @@ class TinyFPGAQSeries(ProgrammerHardwareAdapter):
 
     def checkPortStatus(self, update_button_state):
         try:
-            print("a")
             print (self.port)
-            print (self)
             with serial.Serial(self.port[0], 115200, timeout=0.2, writeTimeout=2) as ser:
-                print("b")
                 fpga = TinyFPGAQ(ser)
-                print ("c")
                 if fpga.is_bootloader_active():
                     com_port_status_sv.set("Connected to QuickFeather. Ready to program.")
                     return True
@@ -161,14 +157,26 @@ class TinyFPGAQSeries(ProgrammerHardwareAdapter):
             return False
 
     def exitBootloader(self):
-        with serial.Serial(self.port[0], 10000000, timeout=0.2, writeTimeout=2) as ser:
+        with serial.Serial(self.port[0], 115200, timeout=0.2, writeTimeout=2) as ser:
             try:
                 TinyFPGAQ(ser).boot()
-                #print "boot sent"
                 print("boot sent")
 
             except serial.SerialTimeoutException:
                 com_port_status_sv.set("Hmm...try pressing the reset button on QuickFeather again.")
+                
+    def printCRCs(self):
+        with serial.Serial(self.port[0], 115200, timeout=10, writeTimeout=10) as ser:
+            fpga = TinyFPGAQ(ser, progress)
+            
+            crc = fpga.read(image_address[0][2], 8, False)
+            print("bootloader:", binascii.hexlify(crc))
+            crc = fpga.read(image_address[1][2], 8, False)
+            print("boot fpga :", binascii.hexlify(crc))
+            crc = fpga.read(image_address[4][2], 8, False)
+            print("M4 app    :", binascii.hexlify(crc))
+
+        
             
 
 class TinyFPGABSeries(ProgrammerHardwareAdapter):
@@ -340,10 +348,15 @@ parser.add_argument(
         metavar='/dev/ttySx',
         help='use this port'
     )
+parser.add_argument(
+        "--crc",
+        action="store_true",
+        help='print CRCs'
+    )
     
 args = parser.parse_args()
 
-if args.m4app or args.bootloader or args.bootfpga or args.reset:
+if args.m4app or args.bootloader or args.bootfpga or args.reset or args.crc:
     ################################################################################
     ################################################################################
     ##
@@ -372,6 +385,13 @@ if args.m4app or args.bootloader or args.bootfpga or args.reset:
     else:
         tinyfpga_adapters = dict((adapter.displayName(), adapter) for adapter in [getProgrammerHardwareAdapter(port) for port in comports()] if adapter is not None)
     
+    try: tinyfpga_adapters
+    except NameError: tinyfpga_adapters = None
+    
+    if tinyfpga_adapters is None:
+        print("Did not find port -- exiting");
+        exit(0);
+    
     tinyfpga_ports = [key for key, value in iter(tinyfpga_adapters.items())]
     print("ports = ", tinyfpga_ports, len(tinyfpga_ports))
     
@@ -398,12 +418,20 @@ if args.m4app or args.bootloader or args.bootfpga or args.reset:
     ]
     image_address = [
         #[address, size , metadata address ] 0xFFFFFF is invalid
-        [0x000000, 0x010000, 0xFFFFFF], #"Bootloader - 0x000000 to 0x010000",
+        [0x000000, 0x010000, 0x014000], #"Bootloader - 0x000000 to 0x010000",
         [0x020000, 0x020000, 0x010000], #"USB FPGA   - 0x020000 to 0x03FFFF",
         [0x040000, 0x020000, 0x011000], #"App FPGA   - 0x040000 to 0x05FFFF",
         [0x060000, 0x020000, 0x012000], #"App FFE    - 0x060000 to 0x07FFFF",
         [0x080000, 0x06E000, 0x013000], #"M4 App     - 0x080000 to 0x0FFFFF"
     ]
+    ########################################
+    ## See if wants to print CRCs
+    ########################################
+    
+    if args.crc:
+        adapter = tinyfpga_adapters[tinyfpga_ports[0]]
+        adapter.printCRCs()
+        
     ########################################
     ## See if wants to program m4app
     ########################################
@@ -439,10 +467,8 @@ if args.m4app or args.bootloader or args.bootfpga or args.reset:
     ########################################
     if args.reset:
         print("Reset the device")
+        adapter = tinyfpga_adapters[tinyfpga_ports[0]]
         adapter.exitBootloader()
-    
-        
-
 
 else:
     ################################################################################

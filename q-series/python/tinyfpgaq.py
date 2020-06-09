@@ -61,8 +61,9 @@ class TinyFPGAQ(object):
     def read_sts(self):
         return self.cmd(0x05, read_len=1) or '1'
 
-    def read(self, addr, length):
-        print( "FastREAD 0x0B (", length, ")")
+    def read(self, addr, length, verbose=True):
+        if (verbose):
+            print( "FastREAD 0x0B (", length, ")")
         data = b''
         readsofar = 0
         while length > 0:
@@ -209,7 +210,7 @@ class TinyFPGAQ(object):
             data = data[write_length:]
             addr += write_length
             cnt +=1
-            if((cnt % (10*1024/16)) == 0):
+            if((cnt % (5*1024/16)) == 0):
               print("Written ", int(cnt*16/1024)," KiB")
 
     def program(self, addr, data, what):
